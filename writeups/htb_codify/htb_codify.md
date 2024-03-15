@@ -266,3 +266,30 @@ $ cat root.txt
 ```
 ![Pwned!](img/13_codify.png)
 
+## Step 6 - Lessons learned
+The steps to get root access to the device were:
+
+### 1. Identify vulnerable technology (vm2, CVE-2023-32314)
+The website provided information of used technologies. In this case, it stated the website used vm2. A quick google search revealed a major vulnerability in this package. This is related to [CAPEC-169 Footprinting](https://capec.mitre.org/data/definitions/169.html).
+
+To address this issue, it should be considered if revealing the used techlogy stack is necessary. Revealing too much information can make is easy for attackers to identify vulnerabilities.
+
+### 2. Exploit the vulnerability to get initial foothold
+A quick google search provided information about a critical CVE in the used package, which made it possible to execute arbitrary code on the target machine.  This is related to [CAPEC-169 Footprinting](https://capec.mitre.org/data/definitions/169.html).
+
+To address this issue, the used packages should be kept up to date and  proper sanitation measurements should be in place.
+
+### 3. Password discovery (privilege escalation to user)
+After getting initial foothold, the user I landed on didn't have too many permissions. However, the user had wide permissions enough to find other local users in the machine and their password hash. This relate_s to [CAPEC-575 Account Footprinting](https://capec.mitre.org/data/definitions/575.html).
+
+To address this issue, the permission should be kept to bare mininmum (least privilege).
+
+### 4. Cracking the password
+Cracking the discoeverd user's password was easy, because they used a common password. This relates to [CAPEC-70 Try Common or Default Usernames and Passwords](https://capec.mitre.org/data/definitions/70.html).
+
+To address this issue, adequate password policies should be in place. For example, used passwords shouldn't be on common password lists (e.g., rockyou.txt).
+
+### 5. Exploiting incorrect comparison to get access to root password
+The password check in the exploited script was unsafe, and it was exploited to reveal the root user's password. This relates to [CWE-697 Incorrect Comparison](https://cwe.mitre.org/data/definitions/697.html).
+
+To address this issue, code quality and security should be reviewed. Peer reviews are good, but additional tools for static analysis, code quality and code security should be considered.
