@@ -293,7 +293,7 @@ The website (probably accidentally) exposed Apache OFBiz, which is not desired. 
 To address this, it should be made sure that services intended for internal use shouldn't accessible from public internet.
 
 ### 2. Exploit the vulnerability to get initial foothold
-A quick online search provided information about a critical CVE in the used technology, which made it possible to gain shell into the target. This is related to [CAPEC-248 Command Injection](https://capec.mitre.org/data/definitions/248.html.
+A quick online search provided information about a critical CVE in the used technology, which made it possible to gain shell into the target. This is related to [CAPEC-248 Command Injection](https://capec.mitre.org/data/definitions/248.html).
 
 To address this issue, the used packages should be kept up to date.
 
