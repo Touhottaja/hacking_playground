@@ -312,3 +312,20 @@ cat /root/root.txt
 
 And with that done, the machine has been completed!  
 ![Pwned!](img/44_beep.png)
+
+## Step 7 - Lessons learned
+
+### Password reuse
+After reading the official writeup to see if I missed anything, I found out that there was password reuse for root account. So instead of doing all of the steps above, I could've just ssh'd as root and get both flags immediately. I'm glad I didn't try ssh'ing as root using the admin's password, because taking the long route taught me more. So as a lesson: Try password reuse on all accounts.
+
+This issue is related to [CAPEC-560: Use of Nown Domain Credentials](https://capec.mitre.org/data/definitions/560.html). To address this issue, I would somehow enforce password policies, require MFA, and monitor logs for abnormal credential access.
+
+### Outdated versions
+Initial foothold was achieved by exploiting vulnerabilities in outdated software. This is related to [CAPEC-310: Scanning for Vulnerable Software](https://capec.mitre.org/data/definitions/310.html).
+
+To address this issue, I would ensure software is up to date and admin panels are not publicly available.
+
+### Privilege escalation
+After gaining access to the system, it was trivial to exploit privileges since the user was able to run nmap as sudo. This relates to [CAPEC-233: Privilege Escalation](https://capec.mitre.org/data/definitions/233.html).
+
+To address this issue, I would ensure that adequate user permission control is in place.
