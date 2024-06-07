@@ -1,4 +1,4 @@
-# Hack the Box - Codify
+# Hack the Box - Bizness
 
 ## Step 1 - Accessing the website
 As it's common with Hack the Box machines, the first thing to do is to add the machine's IP to `/etc/hosts`. This one is no different.  
